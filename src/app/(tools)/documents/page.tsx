@@ -15,6 +15,8 @@ export default function DocumentHubPage() {
     isProcessing,
     error,
     processWordToPdf,
+    processWordToHtml,
+    processWordToText,
     processExcelToPdf,
     processPdfToText,
     processImagesToPdf,
@@ -32,6 +34,12 @@ export default function DocumentHubPage() {
       if (activeOperation === "word-to-pdf") {
         const url = await processWordToPdf(files[0]);
         if (url) setResultUrls([url]);
+      } else if (activeOperation === "word-to-html") {
+        const html = await processWordToHtml(files[0]);
+        if (html) setResultText(html);
+      } else if (activeOperation === "word-to-text") {
+        const text = await processWordToText(files[0]);
+        if (text) setResultText(text);
       } else if (activeOperation === "excel-to-pdf") {
         const url = await processExcelToPdf(files[0]);
         if (url) setResultUrls([url]);
@@ -79,6 +87,8 @@ export default function DocumentHubPage() {
 
     if (isWord && !isMultiple) {
       ops.push({ id: "word-to-pdf", icon: FileText, label: "Convert to PDF", desc: "Turn this Word document into a PDF." });
+      ops.push({ id: "word-to-html", icon: FileText, label: "Convert to HTML", desc: "Turn this Word document into web code." });
+      ops.push({ id: "word-to-text", icon: Search, label: "Extract Text", desc: "Strip formatting and save as raw text." });
     }
     
     if (isExcel && !isMultiple) {
@@ -254,18 +264,19 @@ export default function DocumentHubPage() {
                 {resultText && (
                   <button
                     onClick={() => {
-                      const blob = new Blob([resultText], { type: "text/plain" });
+                      const isHtml = activeOperation === "word-to-html";
+                      const blob = new Blob([resultText], { type: isHtml ? "text/html" : "text/plain" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
-                      a.download = `extracted_text_${Date.now()}.txt`;
+                      a.download = isHtml ? `extracted_code_${Date.now()}.html` : `extracted_text_${Date.now()}.txt`;
                       a.click();
                       URL.revokeObjectURL(url);
                     }}
                     className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 p-4 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 active:scale-95 transition-all text-lg shadow-xl shadow-primary/20"
                   >
                     <Download className="w-6 h-6" />
-                    Save Text File
+                    {activeOperation === "word-to-html" ? "Save HTML File" : "Save Text File"}
                   </button>
                 )}
                 <button

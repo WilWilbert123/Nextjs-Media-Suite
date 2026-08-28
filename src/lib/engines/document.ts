@@ -32,6 +32,15 @@ export class DocumentEngine {
   }
 
   /**
+   * Word (.docx) to Text
+   */
+  static async wordToText(file: File): Promise<string> {
+    const buffer = await this.readFileAsBuffer(file);
+    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+    return result.value;
+  }
+
+  /**
    * Word (.docx) to PDF
    */
   static async wordToPdf(file: File): Promise<Blob> {
