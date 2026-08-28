@@ -21,6 +21,32 @@ export function useDocumentEngine() {
     }
   };
 
+  const processWordToHtml = async (file: File): Promise<string | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      return await DocumentEngine.wordToHtml(file);
+    } catch (err: any) {
+      setError(err.message || "Failed to convert Word to HTML.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processWordToText = async (file: File): Promise<string | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      return await DocumentEngine.wordToText(file);
+    } catch (err: any) {
+      setError(err.message || "Failed to extract text from Word document.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const processExcelToPdf = async (file: File): Promise<string | null> => {
     setIsProcessing(true);
     setError(null);
@@ -99,6 +125,8 @@ export function useDocumentEngine() {
     isProcessing,
     error,
     processWordToPdf,
+    processWordToHtml,
+    processWordToText,
     processExcelToPdf,
     processPdfToText,
     processImagesToPdf,
