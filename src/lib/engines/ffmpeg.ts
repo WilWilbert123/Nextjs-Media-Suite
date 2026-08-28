@@ -1,0 +1,147 @@
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import { getWasmConcurrency } from "../utils/memory";
+
+let ffmpegInstance: FFmpeg | null = null;
+
+/**
+ * Initializes the FFmpeg WebAssembly engine.
+ * Ensures only a single instance is created and loaded.
+ */
+export async function getFFmpeg(): Promise<FFmpeg> {
+  if (ffmpegInstance) {
+    return ffmpegInstance;
+  }
+
+  const ffmpeg = new FFmpeg();
+
+  // Load from local public/wasm directory to ensure privacy and offline capability
+  const baseURL = "/wasm";
+  
+  // Keep track of logs to surface exact errors if it fails
+  (ffmpeg as any)._logs = [];
+  ffmpeg.on("log", ({ message }) => {
+    console.log("[FFmpeg]:", message);
+    (ffmpeg as any)._logs.push(message);
+    if ((ffmpeg as any)._logs.length > 50) {
+      (ffmpeg as any)._logs.shift(); // Keep only last 50 logs
+    }
+  });
+
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+    workerURL: await toBlobURL(
+      `${baseURL}/ffmpeg-core.worker.js`,
+      "text/javascript"
+    ),
+  });
+
+  ffmpegInstance = ffmpeg;
+  return ffmpegInstance;
+}
+
+export async function processVideo(
+  file: File,
+  args: string[],
+  outputName: string,
+  onProgress?: (progress: number) => void
+): Promise<Uint8Array> {
+  const ffmpeg = await getFFmpeg();
+  
+  if (onProgress) {
+    ffmpeg.on("progress", ({ progress }) => {
+      onProgress(progress);
+    });
+  }
+
+  // Ensure the input file has a valid extension for FFmpeg to probe correctly
+  const lastDot = file.name.lastIndexOf(".");
+  const ext = lastDot !== -1 ? file.name.substring(lastDot) : ".mp4";
+  const inputName = `input_vid${ext}`;
+  
+  await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+  // Limit threads based on device capabilities
+  const threads = getWasmConcurrency();
+
+  const code = await ffmpeg.exec(["-threads", threads.toString(), "-i", inputName, ...args, outputName]);
+  if (code !== 0) {
+    const logs = (ffmpeg as any)._logs || [];
+    const errorMsg = logs.slice(-5).join(" | ");
+    
+    // User friendly edge cases
+    if (errorMsg.includes("does not contain any stream")) {
+      throw new Error("This video file does not contain an audio track to extract.");
+    }
+    
+    throw new Error(`FFmpeg error (code ${code}): ${errorMsg || 'Unknown error'}`);
+  }
+
+  const outputData = await ffmpeg.readFile(outputName);
+
+  // Clean up memory
+  await ffmpeg.deleteFile(inputName);
+  await ffmpeg.deleteFile(outputName);
+
+  if (onProgress) {
+    ffmpeg.off("progress", () => { });
+  }
+
+  return outputData as Uint8Array;
+}
+
+export async function processImagesToGif(
+  files: File[],
+  fps: number,
+  outputName: string,
+  onProgress?: (progress: number) => void
+): Promise<Uint8Array> {
+  const ffmpeg = await getFFmpeg();
+
+  if (onProgress) {
+    ffmpeg.on("progress", ({ progress }) => {
+      onProgress(progress);
+    });
+  }
+
+  const inputNames = [];
+  const firstExt = files[0].name.substring(files[0].name.lastIndexOf("."));
+
+  for (let i = 0; i < files.length; i++) {
+    const paddedIndex = String(i + 1).padStart(3, '0');
+    const inputName = `img_${paddedIndex}${firstExt}`;
+    await ffmpeg.writeFile(inputName, await fetchFile(files[i]));
+    inputNames.push(inputName);
+  }
+
+  const threads = getWasmConcurrency();
+
+  const code = await ffmpeg.exec([
+    "-threads", threads.toString(),
+    "-framerate", fps.toString(),
+    "-i", `img_%03d${firstExt}`,
+    "-filter_complex", "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
+    outputName
+  ]);
+  
+  if (code !== 0) {
+    const logs = (ffmpeg as any)._logs || [];
+    const errorMsg = logs.slice(-5).join(" | ");
+    throw new Error(`FFmpeg error (code ${code}): ${errorMsg || 'Unknown error'}`);
+  }
+
+  const outputData = await ffmpeg.readFile(outputName);
+
+  // Clean up memory
+  for (const name of inputNames) {
+    await ffmpeg.deleteFile(name);
+  }
+  await ffmpeg.deleteFile(outputName);
+
+  if (onProgress) {
+    ffmpeg.off("progress", () => { });
+  }
+
+  return outputData as Uint8Array;
+}
