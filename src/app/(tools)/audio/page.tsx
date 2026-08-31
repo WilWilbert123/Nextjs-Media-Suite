@@ -8,19 +8,48 @@ import { Download, RefreshCw, Music, Loader2 } from "lucide-react";
 export default function AudioExtractorPage() {
   const [file, setFile] = React.useState<File | null>(null);
   const [resultUrl, setResultUrl] = React.useState<string | null>(null);
+  const [format, setFormat] = React.useState<string>("mp3");
+  const [quality, setQuality] = React.useState<string>("192k");
+  const [volume, setVolume] = React.useState<string>("1.0");
+  const [bass, setBass] = React.useState<string>("none");
+  const [outputExt, setOutputExt] = React.useState<string>(".mp3");
   
   const { isReady, isProcessing, progress, error, convertVideo } = useMediaEngine();
 
   const handleProcess = async () => {
     if (!file) return;
     
-    // Command: ffmpeg -i input -vn -c:a libmp3lame -q:a 2 output.mp3
-    const args = ["-vn", "-c:a", "libmp3lame", "-q:a", "2"];
-    const ext = ".mp3";
+    const args = ["-vn"];
+    
+    if (format === "mp3") {
+      args.push("-c:a", "libmp3lame", "-b:a", quality);
+    } else if (format === "wav") {
+      args.push("-c:a", "pcm_s16le");
+    } else if (format === "aac") {
+      args.push("-c:a", "aac", "-b:a", quality);
+    }
+
+    const filters = [];
+    if (volume !== "1.0") {
+      filters.push(`volume=${volume}`);
+    }
+    
+    if (bass === "light") {
+      filters.push("bass=g=5:f=110:w=0.6");
+    } else if (bass === "heavy") {
+      filters.push("bass=g=10:f=110:w=0.6");
+    }
+    
+    if (filters.length > 0) {
+      args.push("-af", filters.join(","));
+    }
+
+    const ext = `.${format}`;
 
     const url = await convertVideo(file, args, ext);
     if (url) {
       setResultUrl(url);
+      setOutputExt(ext);
     }
   };
 
@@ -77,12 +106,75 @@ export default function AudioExtractorPage() {
           </div>
 
           {!isProcessing ? (
-            <button
-              onClick={handleProcess}
-              className="flex items-center justify-center gap-2 p-4 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all w-full"
-            >
-              Extract Audio (MP3)
-            </button>
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Format Control */}
+                <div className="flex flex-col gap-2 bg-muted/30 p-4 rounded-xl border border-border">
+                  <label className="text-sm font-medium">Output Format</label>
+                  <select
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background"
+                  >
+                    <option value="mp3">MP3 (Universal)</option>
+                    <option value="wav">WAV (Lossless)</option>
+                    <option value="aac">AAC (High Efficiency)</option>
+                  </select>
+                </div>
+
+                {/* Quality Control */}
+                <div className="flex flex-col gap-2 bg-muted/30 p-4 rounded-xl border border-border">
+                  <label className="text-sm font-medium">Audio Bitrate</label>
+                  <select
+                    value={quality}
+                    onChange={(e) => setQuality(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background"
+                    disabled={format === "wav"}
+                  >
+                    <option value="320k">320 kbps (Highest)</option>
+                    <option value="256k">256 kbps (High)</option>
+                    <option value="192k">192 kbps (Standard)</option>
+                    <option value="128k">128 kbps (Low)</option>
+                  </select>
+                </div>
+
+                {/* Volume Control */}
+                <div className="flex flex-col gap-2 bg-muted/30 p-4 rounded-xl border border-border">
+                  <label className="text-sm font-medium">Volume Adjust</label>
+                  <select
+                    value={volume}
+                    onChange={(e) => setVolume(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background"
+                  >
+                    <option value="0.5">50% (Quieter)</option>
+                    <option value="1.0">100% (Normal)</option>
+                    <option value="1.5">150% (Louder)</option>
+                    <option value="2.0">200% (Much Louder)</option>
+                  </select>
+                </div>
+
+                {/* Bass Boost */}
+                <div className="flex flex-col gap-2 bg-muted/30 p-4 rounded-xl border border-border">
+                  <label className="text-sm font-medium">Bass Boost</label>
+                  <select
+                    value={bass}
+                    onChange={(e) => setBass(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background"
+                  >
+                    <option value="none">None</option>
+                    <option value="light">Light Boost</option>
+                    <option value="heavy">Heavy Boost</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={handleProcess}
+                className="flex items-center justify-center gap-2 p-4 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all w-full"
+              >
+                Extract Audio ({format.toUpperCase()})
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-16 h-16 relative flex items-center justify-center">
@@ -114,11 +206,11 @@ export default function AudioExtractorPage() {
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <a
               href={resultUrl}
-              download={`extracted_audio_${Date.now()}.mp3`}
+              download={`extracted_audio_${Date.now()}${outputExt}`}
               className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 p-4 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all"
             >
               <Download className="w-5 h-5" />
-              Download MP3
+              Download {outputExt.slice(1).toUpperCase()}
             </a>
             <button
               onClick={handleReset}
