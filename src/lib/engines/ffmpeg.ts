@@ -109,6 +109,7 @@ export async function processVideo(
 export async function processImagesToGif(
   files: File[],
   fps: number,
+  options: { format: 'gif' | 'webp'; scale: string; loop: boolean },
   outputName: string,
   onProgress?: (progress: number) => void
 ): Promise<Uint8Array> {
@@ -122,23 +123,64 @@ export async function processImagesToGif(
 
   const inputNames = [];
   const firstExt = files[0].name.substring(files[0].name.lastIndexOf("."));
+  
+  let inputPattern = "";
 
-  for (let i = 0; i < files.length; i++) {
-    const paddedIndex = String(i + 1).padStart(3, '0');
-    const inputName = `img_${paddedIndex}${firstExt}`;
-    await ffmpeg.writeFile(inputName, await fetchFile(files[i]));
-    inputNames.push(inputName);
+  if (files.length === 1) {
+    // If only 1 file, treat it as a direct input (allows editing existing animated GIFs/WebPs)
+    inputPattern = `input${firstExt}`;
+    await ffmpeg.writeFile(inputPattern, await fetchFile(files[0]));
+    inputNames.push(inputPattern);
+  } else {
+    // Multiple files, treat as an image sequence
+    for (let i = 0; i < files.length; i++) {
+      const paddedIndex = String(i + 1).padStart(3, '0');
+      const inputName = `img_${paddedIndex}${firstExt}`;
+      await ffmpeg.writeFile(inputName, await fetchFile(files[i]));
+      inputNames.push(inputName);
+    }
+    inputPattern = `img_%03d${firstExt}`;
   }
 
   const threads = getWasmConcurrency();
+  
+  const args = [
+    "-threads", threads.toString()
+  ];
+  
+  if (files.length > 1) {
+    // Only set framerate for image sequences
+    args.push("-framerate", fps.toString());
+  }
 
-  const code = await ffmpeg.exec([
-    "-threads", threads.toString(),
-    "-framerate", fps.toString(),
-    "-i", `img_%03d${firstExt}`,
-    "-filter_complex", "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
-    outputName
-  ]);
+  args.push("-i", inputPattern);
+
+  // Scale filter
+  let filterStr = "";
+  if (options.scale !== "original") {
+    filterStr += `scale=-1:${options.scale},`; // Scale height, keep aspect ratio width
+  }
+
+  if (options.format === 'gif') {
+    filterStr += "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
+    args.push("-filter_complex", filterStr);
+    args.push("-loop", options.loop ? "0" : "-1");
+  } else {
+    // WebP
+    if (filterStr) {
+      // Remove trailing comma
+      if (filterStr.endsWith(",")) filterStr = filterStr.slice(0, -1);
+      args.push("-vf", filterStr);
+    }
+    args.push("-vcodec", "libwebp");
+    args.push("-lossless", "0");
+    args.push("-q:v", "80"); // Good default quality
+    args.push("-loop", options.loop ? "0" : "1");
+  }
+
+  args.push(outputName);
+
+  const code = await ffmpeg.exec(args);
   
   if (code !== 0) {
     const logs = (ffmpeg as any)._logs || [];
