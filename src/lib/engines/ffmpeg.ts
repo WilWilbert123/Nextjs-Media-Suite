@@ -80,7 +80,20 @@ export async function processVideo(
   // Limit threads based on device capabilities
   const threads = getWasmConcurrency();
 
-  const code = await ffmpeg.exec(["-threads", threads.toString(), "-i", inputName, ...args, outputName]);
+  // Extract -ss and -t to use as input options for better performance and to prevent filter graph errors (like with areverse)
+  const inputArgs: string[] = [];
+  const outputArgs: string[] = [];
+  
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "-ss" || args[i] === "-t") {
+      inputArgs.push(args[i], args[i + 1]);
+      i++; // skip next arg
+    } else {
+      outputArgs.push(args[i]);
+    }
+  }
+
+  const code = await ffmpeg.exec(["-threads", threads.toString(), ...inputArgs, "-i", inputName, ...outputArgs, outputName]);
   if (code !== 0) {
     const logs = (ffmpeg as any)._logs || [];
     const errorMsg = logs.slice(-5).join(" | ");

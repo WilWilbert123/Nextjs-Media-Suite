@@ -12,6 +12,8 @@ export default function VideoToolsPage() {
   const [trimStart, setTrimStart] = React.useState<number>(0);
   const [duration, setDuration] = React.useState<number>(5);
   const [isReversed, setIsReversed] = React.useState<boolean>(false);
+  const [quality, setQuality] = React.useState<string>("original");
+  const [speed, setSpeed] = React.useState<string>("1.0");
   
   const { isReady, isProcessing, progress, error, convertVideo } = useMediaEngine();
 
@@ -28,22 +30,49 @@ export default function VideoToolsPage() {
     }
 
     const filters = [];
+    const audioFilters: string[] = [];
+    
+    // Video speed
+    if (speed !== "1.0") {
+      const speedNum = parseFloat(speed);
+      filters.push(`setpts=${1 / speedNum}*PTS`);
+      
+      if (type === "mp4") {
+        if (speedNum === 4.0) {
+          audioFilters.push("atempo=2.0,atempo=2.0");
+        } else if (speedNum === 0.25) {
+          audioFilters.push("atempo=0.5,atempo=0.5");
+        } else {
+          audioFilters.push(`atempo=${speedNum}`);
+        }
+      }
+    }
+    
     if (isReversed) {
       filters.push("reverse");
+      if (type === "mp4") {
+        audioFilters.push("areverse");
+      }
     }
 
     if (type === "gif") {
-      filters.push("fps=15,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse");
-      if (filters.length > 1) {
-        // combine filters
-        args.push("-filter_complex", filters.join(","));
-      } else {
-        args.push("-filter_complex", filters[0]);
-      }
+      const w = quality === "original" ? "720" : quality;
+      filters.push(`fps=15,scale=${w}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`);
+      
+      args.push("-filter_complex", filters.join(","));
     } else {
-      if (filters.length > 0) {
-        args.push("-vf", filters.join(","));
+      // libx264 requires dimensions to be divisible by 2
+      const scaleStr = quality === "original" 
+        ? "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        : `scale=${quality}:-2`;
+        
+      filters.push(scaleStr);
+      args.push("-vf", filters.join(","));
+      
+      if (audioFilters.length > 0) {
+        args.push("-af", audioFilters.join(","));
       }
+      
       args.push("-preset", "ultrafast", "-movflags", "faststart", "-pix_fmt", "yuv420p");
     }
 
@@ -64,7 +93,7 @@ export default function VideoToolsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
           <Film className="w-8 h-8 text-primary" />
@@ -146,6 +175,42 @@ export default function VideoToolsPage() {
                 />
                 <span className="font-medium">Reverse Video (Boomerang effect)</span>
               </label>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Output Quality */}
+                <div className="flex flex-col gap-2 bg-muted/30 p-4 rounded-xl border border-border">
+                  <label className="text-sm font-medium">Output Quality (Width)</label>
+                  <select
+                    value={quality}
+                    onChange={(e) => setQuality(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background"
+                  >
+                    <option value="original">Original</option>
+                    <option value="1920">1080p (1920w)</option>
+                    <option value="1280">720p (1280w)</option>
+                    <option value="854">480p (854w)</option>
+                    <option value="640">360p (640w)</option>
+                    <option value="426">240p (426w)</option>
+                  </select>
+                </div>
+
+                {/* Playback Speed */}
+                <div className="flex flex-col gap-2 bg-muted/30 p-4 rounded-xl border border-border">
+                  <label className="text-sm font-medium">Playback Speed</label>
+                  <select
+                    value={speed}
+                    onChange={(e) => setSpeed(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background"
+                  >
+                    <option value="0.25">0.25x (Slow)</option>
+                    <option value="0.5">0.5x (Slow)</option>
+                    <option value="1.0">1x (Normal)</option>
+                    <option value="1.5">1.5x (Fast)</option>
+                    <option value="2.0">2x (Fast)</option>
+                    <option value="4.0">4x (Very Fast)</option>
+                  </select>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <button
