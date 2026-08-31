@@ -263,12 +263,12 @@ export default function VideoToolsPage() {
 
       {resultUrl && (
         <div className="flex flex-col gap-6 border border-border rounded-xl bg-card p-6">
-          <div className="w-full bg-black/5 rounded-lg overflow-hidden flex items-center justify-center min-h-[300px]">
+          <div className="w-full bg-black/5 rounded-lg overflow-hidden flex items-center justify-center min-h-[200px] p-4">
             {/* If it's an mp4 we use video, otherwise img for gif */}
             {outputExt === ".mp4" ? (
-              <video src={resultUrl} controls autoPlay loop className="max-w-full max-h-[600px] object-contain" />
+              <video src={resultUrl} controls autoPlay loop className="max-w-full max-h-[45vh] object-contain rounded" />
             ) : (
-              <img src={resultUrl} alt="Generated output" className="max-w-full max-h-[600px] object-contain" />
+              <img src={resultUrl} alt="Generated output" className="max-w-full max-h-[45vh] object-contain rounded" />
             )}
           </div>
           

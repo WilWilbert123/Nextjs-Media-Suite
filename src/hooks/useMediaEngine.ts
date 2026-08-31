@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { getFFmpeg, processVideo, processImagesToGif, processWithWatermark, abortFFmpeg } from "../lib/engines/ffmpeg";
+import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
 export function useMediaEngine() {
+  const engine = useRef<FFmpeg | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -13,7 +15,8 @@ export function useMediaEngine() {
   useEffect(() => {
     let mounted = true;
     getFFmpeg()
-      .then(() => {
+      .then((ffmpeg) => {
+        engine.current = ffmpeg;
         if (mounted) setIsReady(true);
       })
       .catch((err) => {
@@ -105,6 +108,7 @@ export function useMediaEngine() {
   }, []);
 
   return {
+    engine,
     isReady,
     isProcessing,
     progress,
