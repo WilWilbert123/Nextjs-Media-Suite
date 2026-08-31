@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .container {
+    width: 1000px;
+    height: 500px;
+    background: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wrapper {
+    position: relative;
+    background: #f00;
+  }
+  .wrapper video {
+    max-width: 100%;
+    max-height: 100%;
+    /* we don't want fixed width/height so it takes its natural aspect ratio bounded by max */
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="wrapper" id="wrap">
+      <video src="dummy" id="vid" style="max-width:100%; max-height:100%;"></video>
+    </div>
+  </div>
+</body>
+</html>

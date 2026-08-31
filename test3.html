@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .outer {
+    width: 800px;
+    height: 500px;
+    background: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    max-height: 100%;
+    width: fit-content;
+    height: fit-content;
+    background: red;
+  }
+  video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+  <div class="outer">
+    <div class="inner" id="inner">
+      <video src="dummy" style="width: 1080px; height: 1920px;" id="vid"></video>
+    </div>
+  </div>
+  <script>
+    console.log("inner width:", document.getElementById('inner').offsetWidth);
+    console.log("inner height:", document.getElementById('inner').offsetHeight);
+    console.log("video width:", document.getElementById('vid').offsetWidth);
+  </script>
+</body>
+</html>
