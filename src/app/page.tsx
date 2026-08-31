@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Search, Film, Scissors, Music, Move, Zap, Wand2, Type, MonitorPlay, FileImage, BarChart2, FileText, ShieldOff, Eraser, Stamp } from "lucide-react";
+import { Search, Film, Scissors, Music, Move, Zap, Wand2, Type, MonitorPlay, FileImage, BarChart2, FileText, ShieldOff, Eraser, Stamp, Palette, LayoutGrid, Sparkles, Bookmark, QrCode, Grid, Binary, RefreshCw, AudioLines, Captions, Laugh, Crop } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TOOLS = [
@@ -20,6 +20,18 @@ const TOOLS = [
   { id: "metadata", name: "Metadata Cleaner", description: "Strip EXIF & GPS data for total privacy", icon: ShieldOff, href: "/metadata" },
   { id: "background", name: "Background Eraser", description: "AI-powered local background removal", icon: Eraser, href: "/background" },
   { id: "watermark", name: "Batch Watermarker", description: "Securely stamp logos & text on bulk media", icon: Stamp, href: "/watermark" },
+  { id: "palette", name: "Color Palette Extractor", description: "Extract dominant hex colors and gradients from images", icon: Palette, href: "/palette" },
+  { id: "collage", name: "Collage & Grid Maker", description: "Combine images/GIFs side-by-side or in custom grids", icon: LayoutGrid, href: "/collage" },
+  { id: "upscale", name: "AI Image Upscaler", description: "Super-resolution enhancement and noise reduction", icon: Sparkles, href: "/upscale" },
+  { id: "favicon", name: "Favicon & App Icon Generator", description: "Create multi-size .ico packages and web app manifests", icon: Bookmark, href: "/favicon" },
+  { id: "qr", name: "QR Code Studio", description: "Generate styled QR codes or scan and decode images", icon: QrCode, href: "/qr-studio" },
+  { id: "spritesheet", name: "Sprite Sheet Tool", description: "Convert animations to PNG sprite sheets or unpack frames", icon: Grid, href: "/sprite-sheet" },
+  { id: "base64", name: "Base64 Encoder/Decoder", description: "Convert media files to Data URI strings for web code", icon: Binary, href: "/base64" },
+  { id: "loop", name: "Seamless Loop Seamer", description: "Create smooth ping-pong and crossfade loops for GIFs/videos", icon: RefreshCw, href: "/loop" },
+  { id: "audio-editor", name: "Audio Trimmer & Merger", description: "Cut, join, and adjust pitch/speed of MP3, WAV, and AAC", icon: AudioLines, href: "/audio-editor" },
+  { id: "subtitles", name: "Subtitle & Caption Generator", description: "Generate .SRT/.VTT files or burn synced captions", icon: Captions, href: "/subtitles" },
+  { id: "meme", name: "Meme Generator", description: "Classic top/bottom text overlay with viral templates", icon: Laugh, href: "/meme-maker" },
+  { id: "social-crop", name: "Social Aspect Ratio Presets", description: "Auto-pad and crop for 9:16 Reels, TikTok, and 1:1 feeds", icon: Crop, href: "/social-crop" }
 ];
 
 export default function HomePage() {
