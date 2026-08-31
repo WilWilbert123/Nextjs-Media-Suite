@@ -34,8 +34,11 @@ export function useMediaEngine() {
         const outputName = `output${outputExt}`;
         const data = await processVideo(file, args, outputName, setProgress);
         
+        const isAudio = [".mp3", ".wav", ".aac", ".ogg"].includes(outputExt);
+        const mimeType = isAudio ? `audio/${outputExt.slice(1)}` : `video/${outputExt.slice(1)}`;
+        
         // Ensure data is compatible with Blob by taking its buffer or casting
-        const blob = new Blob([new Uint8Array(data)], { type: `video/${outputExt.slice(1)}` });
+        const blob = new Blob([new Uint8Array(data)], { type: mimeType });
         return URL.createObjectURL(blob);
       } catch (err: any) {
         setError(err.message || "An error occurred during processing");
