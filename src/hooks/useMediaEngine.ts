@@ -49,16 +49,16 @@ export function useMediaEngine() {
   );
 
   const convertImagesToGif = useCallback(
-    async (files: File[], fps: number = 10) => {
+    async (files: File[], fps: number = 10, options: { format: 'gif' | 'webp'; scale: string; loop: boolean } = { format: 'gif', scale: 'original', loop: true }) => {
       setIsProcessing(true);
       setProgress(0);
       setError(null);
       
       try {
-        const outputName = `output.gif`;
-        const data = await processImagesToGif(files, fps, outputName, setProgress);
+        const outputName = `output.${options.format}`;
+        const data = await processImagesToGif(files, fps, options, outputName, setProgress);
         
-        const blob = new Blob([new Uint8Array(data)], { type: `image/gif` });
+        const blob = new Blob([new Uint8Array(data)], { type: `image/${options.format}` });
         return URL.createObjectURL(blob);
       } catch (err: any) {
         setError(err.message || "An error occurred during processing");
