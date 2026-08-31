@@ -342,8 +342,9 @@ export default function TransformToolPage() {
                     autoPlay 
                     loop 
                     muted
+                    draggable={false}
                     onLoadedMetadata={(e) => setOriginalDimensions({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
-                    className="w-full h-full object-cover transition-transform duration-75"
+                    className="w-full h-full object-cover transition-transform duration-75 pointer-events-none"
                     style={{
                       transform: `scale(${scalePercent / 100}) translate(${panX}%, ${panY}%) rotate(${rotation}deg) scaleX(${flipHorizontal ? -1 : 1}) scaleY(${flipVertical ? -1 : 1})`,
                       filter: filterEffect === 'grayscale' ? 'grayscale(100%)' 
@@ -359,8 +360,9 @@ export default function TransformToolPage() {
                   <img 
                     src={fileUrl} 
                     alt="Preview" 
+                    draggable={false}
                     onLoad={(e) => setOriginalDimensions({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-                    className="w-full h-full object-cover transition-transform duration-75"
+                    className="w-full h-full object-cover transition-transform duration-75 pointer-events-none"
                     style={{
                       transform: `scale(${scalePercent / 100}) translate(${panX}%, ${panY}%) rotate(${rotation}deg) scaleX(${flipHorizontal ? -1 : 1}) scaleY(${flipVertical ? -1 : 1})`,
                       filter: filterEffect === 'grayscale' ? 'grayscale(100%)' 
