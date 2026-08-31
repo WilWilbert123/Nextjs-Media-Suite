@@ -16,7 +16,7 @@ interface FileUploaderProps {
 export function FileUploader({
   onFileSelect,
   accept = "image/*,video/*",
-  maxSizeMB = 200, // Client side hard limit
+  maxSizeMB = 1000, // Client side hard limit (1GB)
   className,
   multiple = false,
   description = "Supports MP4, WebM, GIF, PNG, WebP",

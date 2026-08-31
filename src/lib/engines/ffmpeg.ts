@@ -41,6 +41,21 @@ export async function getFFmpeg(): Promise<FFmpeg> {
   return ffmpegInstance;
 }
 
+/**
+ * Forcefully terminates the FFmpeg instance and WebWorker.
+ * The next call to getFFmpeg() will spawn a new worker.
+ */
+export function abortFFmpeg() {
+  if (ffmpegInstance) {
+    try {
+      ffmpegInstance.terminate();
+    } catch (e) {
+      console.error("Error terminating FFmpeg:", e);
+    }
+    ffmpegInstance = null;
+  }
+}
+
 export async function processVideo(
   file: File,
   args: string[],
@@ -137,6 +152,59 @@ export async function processImagesToGif(
   for (const name of inputNames) {
     await ffmpeg.deleteFile(name);
   }
+  await ffmpeg.deleteFile(outputName);
+
+  if (onProgress) {
+    ffmpeg.off("progress", () => { });
+  }
+
+  return outputData as Uint8Array;
+}
+
+export async function processWithWatermark(
+  targetFile: File,
+  watermarkFile: File,
+  args: string[],
+  outputName: string,
+  onProgress?: (progress: number) => void
+): Promise<Uint8Array> {
+  const ffmpeg = await getFFmpeg();
+  
+  if (onProgress) {
+    ffmpeg.on("progress", ({ progress }) => {
+      onProgress(progress);
+    });
+  }
+
+  const targetExt = targetFile.name.substring(targetFile.name.lastIndexOf("."));
+  const inputTarget = `input_target${targetExt}`;
+  
+  const wmExt = watermarkFile.name.substring(watermarkFile.name.lastIndexOf("."));
+  const inputWm = `input_wm${wmExt}`;
+  
+  await ffmpeg.writeFile(inputTarget, await fetchFile(targetFile));
+  await ffmpeg.writeFile(inputWm, await fetchFile(watermarkFile));
+
+  const threads = getWasmConcurrency();
+
+  const code = await ffmpeg.exec([
+    "-threads", threads.toString(),
+    "-i", inputTarget,
+    "-i", inputWm,
+    ...args,
+    outputName
+  ]);
+
+  if (code !== 0) {
+    const logs = (ffmpeg as any)._logs || [];
+    const errorMsg = logs.slice(-5).join(" | ");
+    throw new Error(`FFmpeg error (code ${code}): ${errorMsg || 'Unknown error'}`);
+  }
+
+  const outputData = await ffmpeg.readFile(outputName);
+
+  await ffmpeg.deleteFile(inputTarget);
+  await ffmpeg.deleteFile(inputWm);
   await ffmpeg.deleteFile(outputName);
 
   if (onProgress) {

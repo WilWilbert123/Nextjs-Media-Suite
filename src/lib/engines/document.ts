@@ -77,7 +77,7 @@ export class DocumentEngine {
     
     // Initialize pdfjs worker on first use
     if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
     }
 
     const buffer = await this.readFileAsBuffer(file);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { getFFmpeg, processVideo, processImagesToGif } from "../lib/engines/ffmpeg";
+import { getFFmpeg, processVideo, processImagesToGif, processWithWatermark, abortFFmpeg } from "../lib/engines/ffmpeg";
 
 export function useMediaEngine() {
   const [isReady, setIsReady] = useState(false);
@@ -71,6 +71,36 @@ export function useMediaEngine() {
     []
   );
 
+  const convertWithWatermark = useCallback(
+    async (targetFile: File, watermarkFile: File, args: string[], outputExt: string = ".mp4") => {
+      setIsProcessing(true);
+      setProgress(0);
+      setError(null);
+      
+      try {
+        const outputName = `output${outputExt}`;
+        const data = await processWithWatermark(targetFile, watermarkFile, args, outputName, setProgress);
+        
+        const blob = new Blob([new Uint8Array(data)], { type: outputExt === '.gif' ? 'image/gif' : (outputExt === '.jpg' || outputExt === '.jpeg' ? 'image/jpeg' : (outputExt === '.png' ? 'image/png' : `video/${outputExt.slice(1)}`)) });
+        return URL.createObjectURL(blob);
+      } catch (err: any) {
+        setError(err.message || "An error occurred during processing");
+        return null;
+      } finally {
+        setIsProcessing(false);
+        setProgress(0);
+      }
+    },
+    []
+  );
+
+  const cancelProcessing = useCallback(() => {
+    abortFFmpeg();
+    setIsProcessing(false);
+    setProgress(0);
+    setError("Processing cancelled by user.");
+  }, []);
+
   return {
     isReady,
     isProcessing,
@@ -78,5 +108,7 @@ export function useMediaEngine() {
     error,
     convertVideo,
     convertImagesToGif,
+    convertWithWatermark,
+    cancelProcessing,
   };
 }

@@ -44,7 +44,7 @@ export default function VideoToolsPage() {
       if (filters.length > 0) {
         args.push("-vf", filters.join(","));
       }
-      args.push("-movflags", "faststart", "-pix_fmt", "yuv420p");
+      args.push("-preset", "ultrafast", "-movflags", "faststart", "-pix_fmt", "yuv420p");
     }
 
     const url = await convertVideo(file, args, ext);
