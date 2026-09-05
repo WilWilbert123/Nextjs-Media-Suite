@@ -272,14 +272,14 @@ export default function DocumentHubPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {resultUrls.map((url, i) => (
                       <div key={i} className="flex flex-col gap-2 bg-background p-2 rounded-lg border border-border shadow-sm">
-                        {activeOperation.includes("-to-png") || activeOperation.includes("-to-jpeg") ? (
+                        {activeOperation?.includes("-to-png") || activeOperation?.includes("-to-jpeg") ? (
                           <img src={url} className="w-full aspect-[3/4] object-contain rounded border border-border" />
                         ) : (
                           <iframe src={url} className="w-full aspect-[3/4] rounded border-0 pointer-events-none bg-white" />
                         )}
                         <a
                           href={url}
-                          download={`document.${activeOperation.includes("-to-png") ? "png" : activeOperation.includes("-to-jpeg") ? "jpeg" : activeOperation.includes("-to-docx") ? "docx" : activeOperation.includes("-to-excel") ? "xlsx" : "pdf"}`}
+                          download={`document.${activeOperation?.includes("-to-png") ? "png" : activeOperation?.includes("-to-jpeg") ? "jpeg" : activeOperation?.includes("-to-docx") ? "docx" : activeOperation?.includes("-to-excel") ? "xlsx" : "pdf"}`}
                           className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-primary/10 text-primary font-bold hover:bg-primary/20 transition-all text-xs"
                         >
                           <Download className="w-3 h-3" />

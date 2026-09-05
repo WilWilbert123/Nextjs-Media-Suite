@@ -4,6 +4,7 @@ import * as React from "react";
 import { FileUploader } from "@/components/common/FileUploader";
 import { useMediaEngine } from "@/hooks/useMediaEngine";
 import { Download, Zap, Loader2, Gauge, Scale, Clock, Palette } from "lucide-react";
+// @ts-ignore
 import gifsicle from "gifsicle-wasm-browser";
 
 export default function OptimizeToolPage() {

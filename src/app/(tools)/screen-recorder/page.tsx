@@ -313,7 +313,7 @@ export default function ScreenRecorderPage() {
           <div className="flex justify-center mt-2">
             {!isRecording ? (
               <button
-                onClick={startRecording}
+                onClick={() => startRecording()}
                 className="flex items-center gap-2 px-8 py-4 bg-destructive text-destructive-foreground font-bold rounded-full hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-destructive/20"
               >
                 <Circle className="w-5 h-5 fill-current" />

@@ -111,7 +111,7 @@ export default function LoopPage() {
       await engine.current.exec(command);
       
       const data = await engine.current.readFile(outputName);
-      const blob = new Blob([data], { type: ext === 'gif' ? 'image/gif' : 'video/mp4' });
+      const blob = new Blob([data as BlobPart], { type: ext === 'gif' ? 'image/gif' : 'video/mp4' });
       
       if (resultUrl && resultUrl !== previewUrl) {
         URL.revokeObjectURL(resultUrl);

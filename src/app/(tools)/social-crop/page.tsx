@@ -115,7 +115,7 @@ export default function SocialCropPage() {
       const data = await engine.current.readFile(outputName);
       
       const mimeType = isVideo ? 'video/mp4' : file.type;
-      const blob = new Blob([data], { type: mimeType });
+      const blob = new Blob([data as BlobPart], { type: mimeType });
       
       const url = URL.createObjectURL(blob);
       

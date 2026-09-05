@@ -98,7 +98,7 @@ export default function AudioEditorPage() {
       if (exportFormat === 'wav') mimeType = 'audio/wav';
       if (exportFormat === 'aac') mimeType = 'audio/aac';
 
-      const blob = new Blob([data], { type: mimeType });
+      const blob = new Blob([data as BlobPart], { type: mimeType });
       
       if (resultUrl && resultUrl !== previewUrl) {
         URL.revokeObjectURL(resultUrl);

@@ -163,7 +163,7 @@ export default function VideoToolsPage() {
       const data = await engine.current.readFile(outputName);
       
       const mimeType = format === 'gif' ? 'image/gif' : 'video/mp4';
-      const blob = new Blob([data], { type: mimeType });
+      const blob = new Blob([data as BlobPart], { type: mimeType });
       
       if (resultUrl && resultUrl !== previewUrl) {
         URL.revokeObjectURL(resultUrl);
