@@ -12,7 +12,7 @@
 
 <br />
 
-## 🚀 Overview
+## Overview
 
 **GifTer** is a powerful, client-side-only digital media processing suite. Whether you need to convert documents, generate memes, extract audio from video, or cleanly remove backgrounds, GifTer handles it all entirely within your browser using WebAssembly. 
 
@@ -20,7 +20,7 @@
 
 ---
 
-## ✨ Features
+## Features
 
 - **📄 Document Hub:** Accurate offline conversions! Convert Word (`.docx`) to PDF, PNG, or Excel. Convert PDFs to Word, Excel, PNG, JPEG, or extract raw text. 
 - **🎬 Video & Audio Tools:** Trim, cut, reverse, loop, extract audio (MP4 to MP3), and generate subtitles.
@@ -30,7 +30,7 @@
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Framework:** [Next.js 14+](https://nextjs.org/) (App Router)
 - **Language:** TypeScript
@@ -40,7 +40,7 @@
 
 ---
 
-## 📖 Step-by-Step Installation Guide
+## Step-by-Step Installation Guide
 
 Follow these steps to get GifTer running on your local machine.
 
@@ -77,11 +77,11 @@ You are now ready to process media securely and privately!
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are highly encouraged! 
 If you have an idea to improve the suite or add a new offline tool, feel free to fork the repository and submit a pull request.
 
-## 📝 License
+## License
 
 This project is open-source and licensed under the MIT License.
