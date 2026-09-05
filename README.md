@@ -22,11 +22,11 @@
 
 ## Features
 
-- **📄 Document Hub:** Accurate offline conversions! Convert Word (`.docx`) to PDF, PNG, or Excel. Convert PDFs to Word, Excel, PNG, JPEG, or extract raw text. 
-- **🎬 Video & Audio Tools:** Trim, cut, reverse, loop, extract audio (MP4 to MP3), and generate subtitles.
-- **🖼️ Image Utilities:** AI-powered background removal, image upscaling, color palette extraction, batch watermarking, and meme generation.
-- **🗜️ Optimizers & Converters:** Compress images (WebP, AVIF), make GIFs, and convert between next-gen formats seamlessly.
-- **🛠️ Developer Utilities:** Base64 encoding/decoding, QR code generation, and metadata/EXIF cleaning.
+- ** Document Hub:** Accurate offline conversions! Convert Word (`.docx`) to PDF, PNG, or Excel. Convert PDFs to Word, Excel, PNG, JPEG, or extract raw text. 
+- ** Video & Audio Tools:** Trim, cut, reverse, loop, extract audio (MP4 to MP3), and generate subtitles.
+- ** Image Utilities:** AI-powered background removal, image upscaling, color palette extraction, batch watermarking, and meme generation.
+- ** Optimizers & Converters:** Compress images (WebP, AVIF), make GIFs, and convert between next-gen formats seamlessly.
+- ** Developer Utilities:** Base64 encoding/decoding, QR code generation, and metadata/EXIF cleaning.
 
 ---
 
@@ -52,8 +52,8 @@ Ensure you have the following installed:
 ### 2. Clone the Repository
 Open your terminal and clone the repository to your local machine:
 ```bash
-git clone https://github.com/your-username/GifTer.git
-cd GifTer
+git clone https://github.com/WilWilbert123/Nextjs-Media-Suite
+cd Nextjs-Media-Suite
 ```
 
 ### 3. Install Dependencies
