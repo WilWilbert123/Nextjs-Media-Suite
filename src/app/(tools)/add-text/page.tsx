@@ -4,69 +4,117 @@ import * as React from "react";
 import { FileUploader } from "@/components/common/FileUploader";
 import { useMediaEngine } from "@/hooks/useMediaEngine";
 import { getFFmpeg } from "@/lib/engines/ffmpeg";
-import { Download, RefreshCw, Type, Loader2 } from "lucide-react";
+import { Download, Type, Loader2, Play, Pause, Trash2 } from "lucide-react";
 
-export default function AddTextToolPage() {
+
+export default function TextStudioPage() {
   const [file, setFile] = React.useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [resultUrl, setResultUrl] = React.useState<string | null>(null);
+  const [textOverlayUrl, setTextOverlayUrl] = React.useState<string | null>(null);
+  
+  // Text Options
   const [text, setText] = React.useState("HELLO GIFTER!");
   const [textColor, setTextColor] = React.useState("#FFFFFF");
-  const [yPosition, setYPosition] = React.useState<"top" | "center" | "bottom">("center");
+  const [strokeColor, setStrokeColor] = React.useState("#000000");
+  const [strokeWidth, setStrokeWidth] = React.useState(15);
+  const [fontSize, setFontSize] = React.useState(100);
+  const [fontFamily, setFontFamily] = React.useState("sans-serif");
+  const [xPosition, setXPosition] = React.useState(50); // 0 to 100 percentage
+  const [yPosition, setYPosition] = React.useState(50); // 0 to 100 percentage
 
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = React.useState(true);
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
   const { isReady, isProcessing, progress, error, convertVideo } = useMediaEngine();
+
+  // Create immediate preview URL when file is selected
+  React.useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [file]);
+
+  // Handle Play/Pause for Video Preview
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (isPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const drawTextOverlay = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !text.trim()) {
+      setTextOverlayUrl(null);
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // Keep a standard 1080p canvas for the overlay 
+    canvas.width = 1920;
+    canvas.height = 1080;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = textColor;
+    ctx.font = `bold ${fontSize}px ${fontFamily}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    const x = (canvas.width * xPosition) / 100;
+    const y = (canvas.height * yPosition) / 100;
+
+    // Draw stroke first
+    if (strokeWidth > 0) {
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineJoin = "round";
+      ctx.strokeText(text, x, y);
+    }
+    
+    // Draw text over stroke
+    ctx.fillText(text, x, y);
+
+    setTextOverlayUrl(canvas.toDataURL("image/png"));
+  };
+
+  React.useEffect(() => {
+    drawTextOverlay();
+    // Clear result if user edits settings so they can re-render
+    if (resultUrl) {
+      URL.revokeObjectURL(resultUrl);
+      setResultUrl(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, textColor, strokeColor, strokeWidth, fontSize, fontFamily, xPosition, yPosition]);
 
   const handleProcess = async () => {
     const ffmpeg = await getFFmpeg();
-    if (!file || !ffmpeg) return;
+    if (!file || !ffmpeg || !textOverlayUrl) return;
     
     try {
-      // 1. Generate text overlay image from Canvas
-      const canvas = canvasRef.current;
-      if (!canvas) throw new Error("Preview canvas not ready");
-
-      // Draw text in high resolution
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas context failed");
-      
-      // We assume a 1080p canvas for the overlay image
-      canvas.width = 1920;
-      canvas.height = 1080;
-      
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = textColor;
-      ctx.font = "bold 100px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      
-      // Draw stroke
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 15;
-      
-      const x = canvas.width / 2;
-      let y = canvas.height / 2;
-      if (yPosition === "top") y = 200;
-      if (yPosition === "bottom") y = canvas.height - 200;
-
-      ctx.strokeText(text, x, y);
-      ctx.fillText(text, x, y);
-
-      // Export to blob
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas blob failed")), "image/png");
-      });
+      const res = await fetch(textOverlayUrl);
+      const blob = await res.blob();
       const textImageFile = new File([blob], "text_overlay.png", { type: "image/png" });
 
-      // 2. Load the overlay image into FFmpeg
+      // Load overlay into FFmpeg
       const { fetchFile } = await import("@ffmpeg/util");
       await ffmpeg.writeFile("text_overlay.png", await fetchFile(textImageFile));
 
-      // 3. Process video
       const isGif = file.type.includes("gif") || file.name.toLowerCase().endsWith(".gif");
       const outputExt = isGif ? ".gif" : ".mp4";
 
-      // FFmpeg overlay filter: scales the overlay image to the video's width/height, then overlays it
-      // Since our canvas is 1920x1080, we scale it to match the main video [0:v] dimensions.
       const args = [
         "-i", "text_overlay.png",
         "-filter_complex", "[1:v]scale=iw:ih[txt];[0:v][txt]overlay=0:0"
@@ -77,12 +125,26 @@ export default function AddTextToolPage() {
       }
 
       const url = await convertVideo(file, args, outputExt);
+      
       if (url) {
-        setResultUrl(url);
+        setResultUrl(prev => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
       }
     } catch (err: any) {
       console.error(err);
     }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.buttons !== 1) return; // Only trigger if left mouse button is held down
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setXPosition(Math.round(x));
+    setYPosition(Math.round(y));
   };
 
   const handleReset = () => {
@@ -93,194 +155,320 @@ export default function AddTextToolPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Type className="w-8 h-8 text-primary" />
-          Add Text to Media
-        </h1>
-        <p className="text-muted-foreground">
-          Burn captions, titles, or watermarks directly into your video or GIF.
-        </p>
-      </div>
-
+    <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto h-[calc(100vh-6rem)]">
       {/* Hidden canvas for exporting the text overlay */}
       <canvas ref={canvasRef} className="hidden" />
 
+      {/* Header */}
+      <div className="flex flex-col gap-2 shrink-0">
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Type className="w-6 h-6 text-primary" />
+          </div>
+          Text Studio
+        </h1>
+        <p className="text-muted-foreground">
+          Burn beautiful captions, titles, and watermarks directly into your videos and GIFs.
+        </p>
+      </div>
+
       {!isReady && (
-        <div className="p-8 border border-border rounded-xl bg-card flex flex-col items-center justify-center gap-4 text-center">
+        <div className="flex-1 border border-border rounded-xl bg-card flex flex-col items-center justify-center gap-4 text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Initializing WebAssembly Media Engine...</p>
         </div>
       )}
 
       {isReady && !file && (
-        <FileUploader
-          onFileSelect={(f) => setFile(f as File)}
-          accept="video/mp4,video/webm,image/gif"
-        />
-      )}
-
-      {file && !resultUrl && (
-        <div className="flex flex-col gap-6 border border-border rounded-xl bg-card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">{file.name}</p>
-              <p className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-            </div>
-            <button
-              onClick={handleReset}
-              className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
-              disabled={isProcessing}
-            >
-              Choose different file
-            </button>
+        <div className="flex-1 bg-card rounded-xl border border-border p-8 flex items-center justify-center">
+          <div className="w-full max-w-xl">
+            <FileUploader
+              onFileSelect={(f) => setFile(f as File)}
+              accept="video/mp4,video/webm,image/gif"
+            />
           </div>
-
-          {!isProcessing ? (
-            <div className="flex flex-col md:flex-row gap-8">
-              <div className="flex-1 flex flex-col gap-8">
-                {/* Text Input Control */}
-                <div className="flex flex-col gap-4 bg-muted/30 p-4 rounded-xl border border-border">
-                  <label className="text-sm font-medium">Text Content</label>
-                  <textarea
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    className="w-full min-h-[100px] p-3 rounded-lg border border-border bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Enter your caption here..."
-                  />
-                  
-                  <div className="flex gap-4 items-center">
-                    <label className="text-sm font-medium">Color</label>
-                    <input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2 mt-2">
-                    <label className="text-sm font-medium">Position</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {["top", "center", "bottom"].map((pos) => (
-                        <button
-                          key={pos}
-                          onClick={() => setYPosition(pos as any)}
-                          className={`py-2 rounded-lg border-2 font-medium capitalize transition-all ${
-                            yPosition === pos 
-                              ? "border-primary bg-primary/10 text-primary" 
-                              : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {pos}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleProcess}
-                  className="flex items-center justify-center gap-2 p-4 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all w-full mt-auto"
-                >
-                  Burn Text & Encode
-                </button>
-              </div>
-
-              {/* Live Preview Window */}
-              <div className="flex-1 border-2 border-dashed border-border rounded-xl p-2 bg-muted/20 flex flex-col items-center justify-center relative overflow-hidden min-h-[300px]">
-                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md z-10 backdrop-blur-md">
-                  Live Preview
-                </div>
-                
-                <div className="relative flex items-center justify-center w-full h-full">
-                  {file.type.includes("video") ? (
-                    <video 
-                      src={URL.createObjectURL(file)} 
-                      autoPlay 
-                      loop 
-                      muted
-                      className="max-w-full max-h-[300px] object-contain rounded-lg shadow-lg pointer-events-none"
-                    />
-                  ) : (
-                    <img 
-                      src={URL.createObjectURL(file)} 
-                      alt="Preview" 
-                      className="max-w-full max-h-[300px] object-contain rounded-lg shadow-lg pointer-events-none"
-                    />
-                  )}
-                  
-                  {/* CSS Overlay for Text Preview */}
-                  <div 
-                    className="absolute inset-0 flex flex-col text-center pointer-events-none p-4"
-                    style={{
-                      justifyContent: 
-                        yPosition === "top" ? "flex-start" : 
-                        yPosition === "bottom" ? "flex-end" : "center"
-                    }}
-                  >
-                    <p 
-                      className="text-3xl sm:text-5xl font-bold"
-                      style={{ 
-                        color: textColor,
-                        textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0px 4px 10px rgba(0,0,0,0.8)",
-                        whiteSpace: "pre-wrap"
-                      }}
-                    >
-                      {text}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 gap-4">
-              <div className="w-16 h-16 relative flex items-center justify-center">
-                <svg className="animate-spin w-full h-full text-primary" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span className="absolute text-xs font-bold">{Math.round(progress * 100)}%</span>
-              </div>
-              <p className="text-sm font-medium animate-pulse">Rendering text overlay...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="p-4 bg-destructive/10 text-destructive border border-destructive rounded-lg text-sm font-medium break-all">
-              {error}
-            </div>
-          )}
         </div>
       )}
 
-      {resultUrl && (
-        <div className="flex flex-col gap-6 border border-border rounded-xl bg-card p-6">
-          <div className="w-full bg-black/5 rounded-lg overflow-hidden flex items-center justify-center min-h-[300px] p-4">
-            {resultUrl.endsWith(".mp4") ? (
-              <video src={resultUrl} controls autoPlay loop className="max-w-full max-h-[600px] object-contain rounded-lg shadow-lg" />
-            ) : (
-              <img src={resultUrl} alt="Filtered output" className="max-w-full max-h-[600px] object-contain rounded-lg shadow-lg" />
-            )}
-          </div>
+      {file && previewUrl && (
+        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0 pb-6">
           
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <a
-              href={resultUrl}
-              download={`gifter_text_${Date.now()}${file?.name.endsWith('.gif') ? '.gif' : '.mp4'}`}
-              className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 p-4 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all"
+          {/* Left Panel: Settings */}
+          <div className="w-full lg:w-[400px] shrink-0 flex flex-col gap-6 bg-card border border-border rounded-xl overflow-hidden smooth-shadow relative">
+            <div className="p-4 border-b border-border/50 bg-muted/20 flex items-center justify-between shrink-0">
+              <div className="truncate pr-4">
+                <p className="font-medium text-sm truncate">{file.name}</p>
+                <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+              </div>
+              <button
+                onClick={handleReset}
+                className="p-2 hover:bg-destructive/10 hover:text-destructive text-muted-foreground rounded-lg transition-colors"
+                title="Remove File"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-8 flex-1">
+              
+              {/* Text Input */}
+              <div className="flex flex-col gap-3">
+                <label className="text-sm font-semibold flex items-center justify-between">
+                  Caption Text
+                </label>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  className="w-full min-h-[100px] p-3 rounded-lg border border-border bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-medium"
+                  placeholder="Enter your caption here..."
+                />
+              </div>
+
+              {/* Typography Options */}
+              <div className="flex flex-col gap-4">
+                <label className="text-sm font-semibold border-b border-border/50 pb-2">
+                  Typography
+                </label>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground font-medium">Font Family</label>
+                    <select 
+                      value={fontFamily}
+                      onChange={(e) => setFontFamily(e.target.value)}
+                      className="p-2 rounded-lg border border-border bg-background text-sm h-10"
+                    >
+                      <option value="sans-serif">Sans-Serif</option>
+                      <option value="serif">Serif</option>
+                      <option value="monospace">Monospace</option>
+                      <option value="Arial">Arial</option>
+                      <option value="Verdana">Verdana</option>
+                      <option value="Tahoma">Tahoma</option>
+                      <option value="Trebuchet MS">Trebuchet MS</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Georgia">Georgia</option>
+                      <option value="Courier New">Courier New</option>
+                      <option value="Impact">Impact</option>
+                      <option value="Comic Sans MS">Comic Sans</option>
+                      <option value="Brush Script MT">Brush Script MT</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground font-medium flex justify-between">
+                      <span>Size</span>
+                      <span>{fontSize}px</span>
+                    </label>
+                    <div className="h-10 flex items-center">
+                      <input
+                        type="range"
+                        min="20"
+                        max="300"
+                        step="1"
+                        value={fontSize}
+                        onChange={(e) => setFontSize(parseInt(e.target.value))}
+                        className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Color & Stroke */}
+              <div className="flex flex-col gap-4">
+                <label className="text-sm font-semibold border-b border-border/50 pb-2">
+                  Colors & Outline
+                </label>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground font-medium">Text Color</label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-border shrink-0 shadow-sm relative">
+                        <input
+                          type="color"
+                          value={textColor}
+                          onChange={(e) => setTextColor(e.target.value)}
+                          className="absolute -inset-2 w-16 h-16 cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-xs font-mono">{textColor.toUpperCase()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground font-medium">Outline Color</label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-border shrink-0 shadow-sm relative">
+                        <input
+                          type="color"
+                          value={strokeColor}
+                          onChange={(e) => setStrokeColor(e.target.value)}
+                          className="absolute -inset-2 w-16 h-16 cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-xs font-mono">{strokeColor.toUpperCase()}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-2 mt-2">
+                  <label className="text-xs text-muted-foreground font-medium flex justify-between">
+                    <span>Outline Thickness</span>
+                    <span>{strokeWidth}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="40"
+                    step="1"
+                    value={strokeWidth}
+                    onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+                    className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                  />
+                </div>
+              </div>
+
+              {/* Position Options */}
+              <div className="flex flex-col gap-4">
+                <label className="text-sm font-semibold border-b border-border/50 pb-2">
+                  Position
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground font-medium flex justify-between">
+                      <span>Horizontal (X)</span>
+                      <span>{xPosition}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="95"
+                      step="1"
+                      value={xPosition}
+                      onChange={(e) => setXPosition(parseInt(e.target.value))}
+                      className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground font-medium flex justify-between">
+                      <span>Vertical (Y)</span>
+                      <span>{yPosition}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="95"
+                      step="1"
+                      value={yPosition}
+                      onChange={(e) => setYPosition(parseInt(e.target.value))}
+                      className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Export Section */}
+            <div className="p-4 border-t border-border/50 bg-muted/20 shrink-0">
+              {!resultUrl ? (
+                <button
+                  onClick={handleProcess}
+                  disabled={isProcessing}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                >
+                  {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+                  {isProcessing ? "Rendering..." : "Apply & Render"}
+                </button>
+              ) : (
+                <a
+                  href={resultUrl}
+                  download={`gifter_text_${Date.now()}${file.type.includes('gif') ? '.gif' : '.mp4'}`}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 active:scale-95 transition-all shadow-md"
+                >
+                  <Download className="w-5 h-5" />
+                  Save Media
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel: Live Preview */}
+          <div className="flex-[2] lg:flex-[3] flex flex-col gap-4 min-h-[400px]">
+            <div className="flex items-center justify-between shrink-0 px-2">
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                Live Studio
+                {isProcessing && (
+                  <Loader2 className="w-4 h-4 animate-spin text-primary ml-2" />
+                )}
+              </h2>
+              {file.type.includes("video") && resultUrl && (
+                <button
+                  onClick={togglePlay}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm font-medium transition-colors"
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {isPlaying ? 'Pause' : 'Play'}
+                </button>
+              )}
+            </div>
+            
+            {/* Live Render Window */}
+            <div 
+              className="w-full h-full bg-black/5 border border-border/50 rounded-xl relative flex items-center justify-center overflow-hidden shrink-0 group smooth-shadow pattern-dots cursor-move"
+              onPointerDown={handlePointerMove}
+              onPointerMove={handlePointerMove}
             >
-              <Download className="w-5 h-5" />
-              Download Result
-            </a>
-            <button
-              onClick={handleReset}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 p-4 rounded-lg border border-border hover:bg-muted font-medium transition-all"
-            >
-              <RefreshCw className="w-5 h-5" />
-              Add Text to Another
-            </button>
+              {isProcessing && (
+                <div className="absolute top-2 left-2 z-50 bg-background/80 backdrop-blur-md px-2 py-1 rounded-full border border-border/50 flex items-center gap-1.5 shadow-sm">
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground">
+                    {Math.round(progress * 100)}%
+                  </span>
+                </div>
+              )}
+
+              {(resultUrl || previewUrl) && (
+                <div className="w-full h-full relative pointer-events-none">
+                  {file.type.includes("video") ? (
+                    <video 
+                      ref={videoRef}
+                      src={resultUrl || previewUrl!} 
+                      autoPlay 
+                      loop 
+                      playsInline
+                      className="w-full h-full object-contain pointer-events-none" 
+                    />
+                  ) : (
+                    <img 
+                      src={resultUrl || previewUrl!} 
+                      alt="Output" 
+                      className="w-full h-full object-contain pointer-events-none" 
+                    />
+                  )}
+                  {/* Overlay Canvas Image for instant preview */}
+                  {!resultUrl && textOverlayUrl && (
+                     <img 
+                        src={textOverlayUrl} 
+                        className="absolute inset-0 w-full h-full object-contain pointer-events-none" 
+                        alt="Text Overlay" 
+                     />
+                  )}
+                  {/* Invisible crosshair to show where the drag point is mapped */}
+                  <div 
+                    className="absolute w-4 h-4 rounded-full border-2 border-primary/50 bg-background/50 backdrop-blur-sm -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-75"
+                    style={{ left: `${xPosition}%`, top: `${yPosition}%` }}
+                  />
+                </div>
+              )}
+
+              {error && (
+                <div className="absolute bottom-4 left-4 right-4 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg text-sm font-medium shadow-lg backdrop-blur-md">
+                  {error}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
