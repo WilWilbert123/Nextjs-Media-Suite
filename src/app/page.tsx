@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Search, Film, Scissors, Music, Move, Zap, Wand2, Type, MonitorPlay, FileImage, BarChart2, FileText, ShieldOff, Eraser, Stamp, Palette, LayoutGrid, Sparkles, Bookmark, QrCode, Grid, Binary, RefreshCw, AudioLines, Captions, Laugh, Crop } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const TOOLS = [
   { id: "maker", name: "GIF Maker", description: "Frame-by-frame assembly (GIF/WebP/APNG)", icon: Film, href: "/maker" },
@@ -47,6 +48,9 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto p-3 md:p-4 flex flex-col gap-2 justify-between h-[100dvh] overflow-hidden">
+      <div className="fixed top-4 right-4 md:top-6 md:right-6 z-50">
+        <ThemeToggle />
+      </div>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col items-center justify-center pt-2 pb-2 text-center gap-1 smooth-show">
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
