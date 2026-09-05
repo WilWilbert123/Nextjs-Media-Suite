@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Download, RefreshCw, Monitor, Play, Square, Circle } from "lucide-react";
+import { Download, RefreshCw, Monitor, Play, Square, Circle, Mic, Volume2, MousePointer2 } from "lucide-react";
 
 export default function ScreenRecorderPage() {
   const [stream, setStream] = React.useState<MediaStream | null>(null);
@@ -14,6 +14,12 @@ export default function ScreenRecorderPage() {
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const allTracksRef = React.useRef<MediaStreamTrack[]>([]);
+
+  // Settings
+  const [recordMic, setRecordMic] = React.useState(false);
+  const [recordSystemAudio, setRecordSystemAudio] = React.useState(true);
+  const [cursorStyle, setCursorStyle] = React.useState<"always" | "motion" | "never">("always");
 
   React.useEffect(() => {
     return () => {
@@ -23,34 +29,85 @@ export default function ScreenRecorderPage() {
   }, []);
 
   const stopStream = () => {
+    allTracksRef.current.forEach(track => {
+      try { track.stop(); } catch (e) {}
+    });
+    allTracksRef.current = [];
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
   };
 
   const startScreenShare = async () => {
     try {
+      allTracksRef.current = [];
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: "always" } as any,
-        audio: {
+        video: { cursor: cursorStyle } as any,
+        audio: recordSystemAudio ? {
           echoCancellation: false,
           noiseSuppression: false,
           sampleRate: 44100
-        }
+        } : false
       });
+      allTracksRef.current.push(...displayStream.getTracks());
       
-      setStream(displayStream);
+      let finalStream = displayStream;
+
+      if (recordMic) {
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 44100
+            }
+          });
+          allTracksRef.current.push(...micStream.getTracks());
+          
+          const audioContext = new window.AudioContext();
+          const dest = audioContext.createMediaStreamDestination();
+          
+          if (displayStream.getAudioTracks().length > 0) {
+            const systemSource = audioContext.createMediaStreamSource(displayStream);
+            systemSource.connect(dest);
+          }
+          
+          if (micStream.getAudioTracks().length > 0) {
+            const micSource = audioContext.createMediaStreamSource(micStream);
+            micSource.connect(dest);
+          }
+          
+          const tracks = [
+            ...displayStream.getVideoTracks(),
+            ...dest.stream.getAudioTracks()
+          ];
+          finalStream = new MediaStream(tracks);
+          
+        } catch (micErr) {
+          console.warn("Could not access microphone", micErr);
+          alert("Microphone access denied or unavailable. Recording without mic.");
+        }
+      }
+      
+      setStream(finalStream);
       
       if (videoRef.current) {
-        videoRef.current.srcObject = displayStream;
+        videoRef.current.srcObject = finalStream;
+        videoRef.current.muted = true; // Always mute local playback to avoid feedback
       }
 
       // Stop if user clicks "Stop sharing" on the browser UI
       displayStream.getVideoTracks()[0].onended = () => {
-        if (isRecording) stopRecording();
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
         stopStream();
       };
+      
+      // Auto-start recording immediately after sharing begins
+      setTimeout(() => {
+        startRecording(finalStream);
+      }, 100);
       
     } catch (err: any) {
       console.error("Screen sharing failed", err);
@@ -58,22 +115,26 @@ export default function ScreenRecorderPage() {
     }
   };
 
-  const startRecording = () => {
-    if (!stream) return;
+  const startRecording = (streamToRecord: MediaStream | null = stream) => {
+    if (!streamToRecord) return;
     
     chunksRef.current = [];
     
-    // Check supported mime types
-    const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-    let options = {};
+    // Check supported mime types depending on audio track presence
+    const hasAudio = streamToRecord.getAudioTracks().length > 0;
+    const mimeTypes = hasAudio 
+      ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+      : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+      
+    let options: any = {};
     for (const type of mimeTypes) {
-      if (MediaRecorder.isTypeSupported(type)) {
+      if (typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(type)) {
         options = { mimeType: type };
         break;
       }
     }
 
-    const recorder = new MediaRecorder(stream, options);
+    const recorder = new MediaRecorder(streamToRecord, options);
     
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -83,23 +144,32 @@ export default function ScreenRecorderPage() {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
       setRecordedBlob(blob);
       setRecordedUrl(URL.createObjectURL(blob));
+      
+      setIsRecording(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
     
-    recorder.start(1000); // chunk every second
-    mediaRecorderRef.current = recorder;
-    setIsRecording(true);
-    setDuration(0);
-    
-    timerRef.current = setInterval(() => {
-      setDuration(prev => prev + 1);
-    }, 1000);
+    try {
+      recorder.start(1000); // chunk every second
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setDuration(0);
+      
+      timerRef.current = setInterval(() => {
+        setDuration(prev => prev + 1);
+      }, 1000);
+    } catch (err: any) {
+      console.error("Failed to start MediaRecorder:", err);
+      alert("Failed to start recording: " + err.message + "\n\nTry unchecking 'System Audio' if you're on a Mac or recording an entire screen, as some combinations aren't supported by this browser.");
+    }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerRef.current) clearInterval(timerRef.current);
     }
   };
 
@@ -131,20 +201,78 @@ export default function ScreenRecorderPage() {
       </div>
 
       {!stream && !recordedUrl && (
-        <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-border rounded-xl bg-card gap-6">
-          <div className="p-6 bg-muted rounded-full">
-            <Monitor className="w-12 h-12 text-primary" />
-          </div>
-          <div className="text-center">
-            <h3 className="text-xl font-bold mb-2">Share your screen</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Click the button below to grant permission. Your recording happens entirely locally and never leaves your computer.
+        <div className="flex flex-col items-center justify-center p-8 lg:p-12 border-2 border-dashed border-border rounded-xl bg-card gap-8">
+          
+          <div className="flex flex-col items-center text-center gap-2">
+            <div className="p-6 bg-muted rounded-full mb-2">
+              <Monitor className="w-12 h-12 text-primary" />
+            </div>
+            <h3 className="text-2xl font-bold">Configure Recording</h3>
+            <p className="text-muted-foreground max-w-md">
+              Select your recording preferences before sharing your screen.
             </p>
           </div>
+
+          <div className="flex flex-col w-full max-w-md gap-4 bg-background p-6 rounded-xl border border-border/50 smooth-shadow">
+             
+             {/* System Audio */}
+             <label className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50">
+                <div className="flex items-center gap-3">
+                  <Volume2 className="w-5 h-5 text-primary" />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">System Audio</span>
+                    <span className="text-[10px] text-muted-foreground">Capture system sounds (tab/window)</span>
+                  </div>
+                </div>
+                <input type="checkbox" checked={recordSystemAudio} onChange={(e) => setRecordSystemAudio(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+             </label>
+
+             {/* Microphone */}
+             <label className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50">
+                <div className="flex items-center gap-3">
+                  <Mic className="w-5 h-5 text-primary" />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">Microphone</span>
+                    <span className="text-[10px] text-muted-foreground">Add your voice narration</span>
+                  </div>
+                </div>
+                <input type="checkbox" checked={recordMic} onChange={(e) => setRecordMic(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+             </label>
+
+             {/* Cursor Style */}
+             <div className="flex flex-col gap-2 p-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <MousePointer2 className="w-5 h-5 text-primary" />
+                  <span className="font-bold text-sm">Mouse Pointer Visibility</span>
+                </div>
+                <div className="flex gap-2">
+                  {[
+                    { id: "always", label: "Always Show" },
+                    { id: "motion", label: "On Motion" },
+                    { id: "never", label: "Hide Cursor" }
+                  ].map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => setCursorStyle(c.id as any)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border ${
+                        cursorStyle === c.id 
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                          : "bg-card border-border/50 text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+             </div>
+
+          </div>
+
           <button
             onClick={startScreenShare}
-            className="px-8 py-4 bg-primary text-primary-foreground font-bold rounded-lg hover:opacity-90 active:scale-95 transition-all text-lg"
+            className="w-full max-w-md py-4 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-90 active:scale-95 transition-all text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
           >
+            <Monitor className="w-5 h-5" />
             Start Screen Share
           </button>
         </div>

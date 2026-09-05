@@ -146,8 +146,9 @@ export default function FormatsToolPage() {
 
               {/* Live Preview Window */}
               <div className="flex-1 border-2 border-dashed border-border rounded-xl p-2 bg-muted/20 flex flex-col items-center justify-center relative overflow-hidden min-h-[300px]">
-                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md z-10 backdrop-blur-md">
-                  Original Media
+                <div className="absolute top-2 right-2 bg-primary text-primary-foreground font-bold text-xs px-3 py-1 rounded-full z-10 backdrop-blur-md flex items-center gap-2 shadow-lg">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Preview: {targetFormat.toUpperCase()}
                 </div>
                 {file.type.includes("video") ? (
                   <video 
@@ -156,13 +157,21 @@ export default function FormatsToolPage() {
                     loop 
                     muted
                     controls
-                    className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg"
+                    className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg transition-all duration-300"
+                    style={{
+                      filter: targetFormat === 'gif' ? 'contrast(1.15) saturate(1.2) brightness(0.95)' : 
+                              targetFormat === 'avi' ? 'sepia(0.1) contrast(0.9) blur(0.5px)' : 'none',
+                    }}
                   />
                 ) : (
                   <img 
                     src={URL.createObjectURL(file)} 
                     alt="Preview" 
-                    className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg"
+                    className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg transition-all duration-300"
+                    style={{
+                      filter: targetFormat === 'gif' ? 'contrast(1.15) saturate(1.2) brightness(0.95)' : 
+                              targetFormat === 'avi' ? 'sepia(0.1) contrast(0.9) blur(0.5px)' : 'none',
+                    }}
                   />
                 )}
               </div>
