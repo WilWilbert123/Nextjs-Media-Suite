@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search, Film, Scissors, Music, Move, Zap, Wand2, Type, MonitorPlay, FileImage, BarChart2, FileText, ShieldOff, Eraser, Stamp, Palette, LayoutGrid, Sparkles, Bookmark, QrCode, Grid, Binary, RefreshCw, AudioLines, Captions, Laugh, Crop } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { GithubStar } from "@/components/GithubStar";
 
 const CATEGORIES = ["All", "Video", "Image", "Audio", "Utilities"];
 
@@ -51,8 +52,9 @@ export default function HomePage() {
   }, [search, category]);
 
   return (
-    <div className="flex-1 w-full max-w-7xl mx-auto p-3 md:p-4 flex flex-col gap-2 justify-between h-[100dvh] overflow-hidden">
-      <div className="fixed top-4 right-4 md:top-6 md:right-6 z-50">
+    <div className="flex-1 w-full max-w-7xl mx-auto p-3 pt-14 md:p-4 flex flex-col gap-2 justify-between h-[100dvh] overflow-hidden relative">
+      <div className="absolute top-3 right-3 md:fixed md:top-6 md:right-6 z-50 flex items-center gap-1 md:gap-2 bg-background/50 backdrop-blur-md p-1 rounded-lg border border-border/50 scale-90 md:scale-100 origin-top-right">
+        <GithubStar />
         <ThemeToggle />
       </div>
       <div className="flex flex-col gap-3">
@@ -95,7 +97,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-4 gap-2 md:gap-3 flex-1 min-h-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 lg:grid-rows-4 gap-2 md:gap-3 flex-1 min-h-0 overflow-y-auto pb-4">
           {filteredTools.map((tool, index) => {
             const Icon = tool.icon;
             return (
@@ -106,14 +108,14 @@ export default function HomePage() {
                 style={{ animationDelay: `${100 + index * 30}ms` }}
               >
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary group-hover:scale-110 transition-transform duration-200 ease-spring">
+                  <div className="flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-lg bg-secondary group-hover:scale-110 transition-transform duration-200 ease-spring shrink-0">
                     <Icon className="w-4 h-4 text-foreground" />
                   </div>
-                  <h3 className="text-base font-bold text-foreground">
+                  <h3 className="text-sm md:text-base font-bold text-foreground leading-tight truncate">
                     {tool.name}
                   </h3>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed line-clamp-2">
                   {tool.description}
                 </p>
               </Link>

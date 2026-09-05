@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { GithubStar } from "@/components/GithubStar";
 
 export default function ToolsLayout({
   children,
@@ -21,7 +22,10 @@ export default function ToolsLayout({
             <ArrowLeft className="w-4 h-4" />
             Back to Tools
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <GithubStar />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       
