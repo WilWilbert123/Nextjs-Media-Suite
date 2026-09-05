@@ -17,44 +17,69 @@ export default function DocumentHubPage() {
     processWordToPdf,
     processWordToHtml,
     processWordToText,
+    processWordToPng,
+    processWordToExcel,
     processExcelToPdf,
     processPdfToText,
     processImagesToPdf,
     processMergePdfs,
-    processSplitPdf
+    processSplitPdf,
+    processPdfToPng,
+    processPdfToJpeg,
+    processPdfToDocx,
+    processPdfToExcel
   } = useDocumentEngine();
 
-  const handleProcess = async () => {
-    if (files.length === 0 || !activeOperation) return;
+  const handleProcess = async (operation: string) => {
+    if (files.length === 0 || !operation) return;
     
+    setActiveOperation(operation);
     setResultUrls([]);
     setResultText(null);
 
     try {
-      if (activeOperation === "word-to-pdf") {
+      if (operation === "word-to-pdf") {
         const url = await processWordToPdf(files[0]);
         if (url) setResultUrls([url]);
-      } else if (activeOperation === "word-to-html") {
+      } else if (operation === "word-to-html") {
         const html = await processWordToHtml(files[0]);
         if (html) setResultText(html);
-      } else if (activeOperation === "word-to-text") {
+      } else if (operation === "word-to-text") {
         const text = await processWordToText(files[0]);
         if (text) setResultText(text);
-      } else if (activeOperation === "excel-to-pdf") {
+      } else if (operation === "word-to-png") {
+        const urls = await processWordToPng(files[0]);
+        if (urls) setResultUrls(urls);
+      } else if (operation === "word-to-excel") {
+        const url = await processWordToExcel(files[0]);
+        if (url) setResultUrls([url]);
+      } else if (operation === "excel-to-pdf") {
         const url = await processExcelToPdf(files[0]);
         if (url) setResultUrls([url]);
-      } else if (activeOperation === "images-to-pdf") {
+      } else if (operation === "images-to-pdf") {
         const url = await processImagesToPdf(files);
         if (url) setResultUrls([url]);
-      } else if (activeOperation === "merge-pdf") {
+      } else if (operation === "merge-pdf") {
         const url = await processMergePdfs(files);
         if (url) setResultUrls([url]);
-      } else if (activeOperation === "split-pdf") {
+      } else if (operation === "split-pdf") {
         const urls = await processSplitPdf(files[0]);
         if (urls) setResultUrls(urls);
-      } else if (activeOperation === "pdf-to-text") {
+      } else if (operation === "pdf-to-text") {
         const text = await processPdfToText(files[0]);
         if (text) setResultText(text);
+      } else if (operation === "pdf-to-png") {
+        const urls = await processPdfToPng(files[0]);
+        if (urls) setResultUrls(urls);
+      } else if (operation === "pdf-to-jpeg") {
+        const urls = await processPdfToJpeg(files[0]);
+        if (urls) setResultUrls(urls);
+      } else if (operation === "pdf-to-docx") {
+        const url = await processPdfToDocx(files[0]);
+        if (url) setResultUrls([url]);
+      } else if (operation === "pdf-to-excel") {
+        const url = await processPdfToExcel(files[0]);
+        if (url) setResultUrls([url]);
       }
     } catch (err: any) {
       console.error(err);
@@ -88,6 +113,8 @@ export default function DocumentHubPage() {
     if (isWord && !isMultiple) {
       ops.push({ id: "word-to-pdf", icon: FileText, label: "Convert to PDF", desc: "Turn this Word document into a PDF." });
       ops.push({ id: "word-to-html", icon: FileText, label: "Convert to HTML", desc: "Turn this Word document into web code." });
+      ops.push({ id: "word-to-png", icon: Images, label: "Convert to PNG", desc: "Render the first page as an image." });
+      ops.push({ id: "word-to-excel", icon: FileSpreadsheet, label: "Convert to Excel", desc: "Extract tables into a spreadsheet." });
       ops.push({ id: "word-to-text", icon: Search, label: "Extract Text", desc: "Strip formatting and save as raw text." });
     }
     
@@ -100,8 +127,15 @@ export default function DocumentHubPage() {
     }
 
     if (isPdf && !isMultiple) {
-      ops.push({ id: "split-pdf", icon: SplitSquareHorizontal, label: "Split PDF", desc: "Extract individual pages from this PDF." });
-      ops.push({ id: "pdf-to-text", icon: Search, label: "Extract Text", desc: "Parse raw text data from this PDF." });
+      const PDF_OPERATIONS = [
+        { id: "split-pdf", label: "Split PDF", desc: "Extract individual pages from this PDF.", icon: SplitSquareHorizontal },
+        { id: "pdf-to-text", label: "Extract Text", desc: "Parse raw text data from this PDF.", icon: FileText },
+        { id: "pdf-to-docx", label: "Convert to Word", desc: "Extract text into an editable DOCX file.", icon: FileText },
+        { id: "pdf-to-excel", label: "Convert to Excel", desc: "Extract tabular text to a spreadsheet.", icon: FileSpreadsheet },
+        { id: "pdf-to-png", label: "Convert to PNG", desc: "Render all pages to high-quality PNGs.", icon: Images },
+        { id: "pdf-to-jpeg", label: "Convert to JPEG", desc: "Render all pages to JPEG images.", icon: Images }
+      ];
+      ops.push(...PDF_OPERATIONS);
     }
 
     if (areAllPdfs && isMultiple) {
@@ -179,7 +213,7 @@ export default function DocumentHubPage() {
                       return (
                         <button
                           key={op.id}
-                          onClick={() => setActiveOperation(op.id)}
+                          onClick={() => handleProcess(op.id)}
                           className={`flex flex-col gap-2 p-4 rounded-xl border-2 transition-all text-left group ${
                             isSelected
                               ? "border-primary bg-primary/10"
@@ -195,15 +229,6 @@ export default function DocumentHubPage() {
                       );
                     })}
                   </div>
-
-                  {activeOperation && (
-                    <button
-                      onClick={handleProcess}
-                      className="mt-4 flex items-center justify-center gap-2 p-4 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 active:scale-95 transition-all w-full text-lg shadow-xl shadow-primary/20"
-                    >
-                      Process Document <ArrowRight className="w-5 h-5" />
-                    </button>
-                  )}
                 </>
               )}
             </div>
@@ -230,15 +255,31 @@ export default function DocumentHubPage() {
                 {resultText ? (
                   <pre className="whitespace-pre-wrap font-mono text-sm bg-background p-4 rounded-lg border border-border shadow-sm">{resultText}</pre>
                 ) : resultUrls.length === 1 ? (
-                  <iframe src={resultUrls[0]} className="w-full min-h-[500px] rounded-lg border border-border shadow-sm bg-background" />
+                  activeOperation === "word-to-excel" ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-4 bg-background border border-border rounded-lg h-[300px]">
+                      <FileSpreadsheet className="w-16 h-16 text-primary" />
+                      <p className="font-bold text-lg">Spreadsheet Ready!</p>
+                      <p className="text-muted-foreground text-sm">Tables have been extracted. Click download below.</p>
+                    </div>
+                  ) : activeOperation === "word-to-png" ? (
+                    <div className="flex items-center justify-center bg-background border border-border rounded-lg min-h-[500px] p-4">
+                      <img src={resultUrls[0]} alt="Converted Preview" className="max-w-full max-h-[600px] object-contain shadow-sm rounded border border-border" />
+                    </div>
+                  ) : (
+                    <iframe src={resultUrls[0]} className="w-full min-h-[500px] rounded-lg border border-border shadow-sm bg-background" />
+                  )
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {resultUrls.map((url, i) => (
                       <div key={i} className="flex flex-col gap-2 bg-background p-2 rounded-lg border border-border shadow-sm">
-                        <iframe src={url} className="w-full aspect-[3/4] rounded border-0 pointer-events-none" />
+                        {activeOperation.includes("-to-png") || activeOperation.includes("-to-jpeg") ? (
+                          <img src={url} className="w-full aspect-[3/4] object-contain rounded border border-border" />
+                        ) : (
+                          <iframe src={url} className="w-full aspect-[3/4] rounded border-0 pointer-events-none bg-white" />
+                        )}
                         <a
                           href={url}
-                          download={`page_${i + 1}.pdf`}
+                          download={`document.${activeOperation.includes("-to-png") ? "png" : activeOperation.includes("-to-jpeg") ? "jpeg" : activeOperation.includes("-to-docx") ? "docx" : activeOperation.includes("-to-excel") ? "xlsx" : "pdf"}`}
                           className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-primary/10 text-primary font-bold hover:bg-primary/20 transition-all text-xs"
                         >
                           <Download className="w-3 h-3" />
@@ -254,11 +295,11 @@ export default function DocumentHubPage() {
                 {resultUrls.length === 1 && (
                   <a
                     href={resultUrls[0]}
-                    download={`gifter_doc_${Date.now()}.pdf`}
+                    download={`document_${Date.now()}.${activeOperation === "word-to-png" ? "png" : activeOperation === "word-to-excel" ? "xlsx" : "pdf"}`}
                     className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 p-4 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 active:scale-95 transition-all text-lg shadow-xl shadow-primary/20"
                   >
                     <Download className="w-6 h-6" />
-                    Download PDF Document
+                    Download {activeOperation === "word-to-png" ? "PNG Image" : activeOperation === "word-to-excel" ? "Excel Spreadsheet" : "PDF Document"}
                   </a>
                 )}
                 {resultText && (

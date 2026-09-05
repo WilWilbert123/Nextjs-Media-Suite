@@ -5,6 +5,8 @@ import * as XLSX from "xlsx";
 export type DocumentOperation = 
   | "word-to-pdf"
   | "word-to-html"
+  | "word-to-png"
+  | "word-to-excel"
   | "excel-to-pdf"
   | "excel-to-csv"
   | "pdf-to-images"
@@ -44,38 +46,156 @@ export class DocumentEngine {
    * Word (.docx) to PDF
    */
   static async wordToPdf(file: File): Promise<Blob> {
-    const html = await this.wordToHtml(file);
+    const buffer = await this.readFileAsBuffer(file);
     
-    // Create an invisible container for the HTML
+    // Create a hidden wrapper so it doesn't disrupt the UI
+    const wrapper = document.createElement('div');
+    wrapper.style.width = "0";
+    wrapper.style.height = "0";
+    wrapper.style.overflow = "hidden";
+    wrapper.style.position = "fixed";
+    wrapper.style.top = "0";
+    wrapper.style.left = "0";
+    
+    // Create the actual container for docx-preview
     const container = document.createElement('div');
-    container.innerHTML = `<div style="padding: 20px; font-family: sans-serif;">${html}</div>`;
-    document.body.appendChild(container);
+    container.style.width = "816px"; // 8.5 inches at 96 DPI
+    container.style.minHeight = "1056px"; // 11 inches
+    container.style.background = "white";
     
-    const opt = {
-      margin:       0.5,
-      filename:     'document.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
     
     try {
+      // docx-preview requires JSZip to be available on the window object
+      const JSZip = (await import("jszip")).default;
+      (window as any).JSZip = JSZip;
+
+      const docx = await import("docx-preview");
+      await docx.renderAsync(buffer, container, container, {
+        inWrapper: false,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        ignoreFonts: false,
+        breakPages: true,
+        useBase64URL: true,
+      });
+
+      // Wait a moment for fonts and images to render in the DOM
+      await new Promise(r => setTimeout(r, 200));
+      
+      const opt = {
+        margin:       0,
+        filename:     'document.pdf',
+        image:        { type: 'jpeg', quality: 1.0 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      
       const html2pdfModule = (await import("html2pdf.js")).default;
       const pdfBlob = await html2pdfModule().set(opt).from(container).output('blob');
       return pdfBlob;
     } finally {
-      document.body.removeChild(container);
+      document.body.removeChild(wrapper);
     }
   }
 
   /**
-   * PDF to Text Extraction
+   * Generic PDF to Images renderer
+   */
+  static async renderPdfToImages(pdfBlob: Blob, type: "image/png" | "image/jpeg" = "image/png"): Promise<Blob[]> {
+    const pdfjsLib = await import("pdfjs-dist");
+    
+    if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+    }
+
+    const buffer = await pdfBlob.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    
+    const blobs: Blob[] = [];
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      
+      if (!context) throw new Error("Could not create canvas context");
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      // Fill background for JPEGs since they don't support transparency
+      if (type === "image/jpeg") {
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => {
+          if (b) resolve(b);
+          else reject(new Error("Canvas to Blob failed"));
+        }, type, 0.95);
+      });
+      blobs.push(blob);
+    }
+    
+    return blobs;
+  }
+
+  /**
+   * Word (.docx) to PNG (All Pages)
+   */
+  static async wordToPng(file: File): Promise<Blob[]> {
+    const pdfBlob = await this.wordToPdf(file);
+    return this.renderPdfToImages(pdfBlob, "image/png");
+  }
+
+  /**
+   * PDF to PNG (All Pages)
+   */
+  static async pdfToPng(file: File): Promise<Blob[]> {
+    return this.renderPdfToImages(file, "image/png");
+  }
+
+  /**
+   * PDF to JPEG (All Pages)
+   */
+  static async pdfToJpeg(file: File): Promise<Blob[]> {
+    return this.renderPdfToImages(file, "image/jpeg");
+  }
+
+  /**
+   * Word (.docx) to Excel (Extracts tables)
+   */
+  static async wordToExcel(file: File): Promise<Blob> {
+    const html = await this.wordToHtml(file);
+    
+    // Parse HTML tables directly into an XLSX workbook
+    const workbook = XLSX.read(html, { type: "string" });
+    
+    // If no tables were found, SheetNames might be empty or contain an empty sheet.
+    if (!workbook.SheetNames.length) {
+      throw new Error("No tables found in the Word document to extract.");
+    }
+    
+    // Generate XLSX blob
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    return new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  }
+
+  /**
+   * PDF to Text
    */
   static async pdfToText(file: File): Promise<string> {
     const pdfjsLib = await import("pdfjs-dist");
     
-    // Initialize pdfjs worker on first use
     if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
     }
@@ -83,15 +203,58 @@ export class DocumentEngine {
     const buffer = await this.readFileAsBuffer(file);
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
     
-    let fullText = "";
+    let text = "";
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(" ");
-      fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+      const content = await page.getTextContent();
+      const strings = content.items.map((item: any) => item.str);
+      text += strings.join(" ") + "\n\n";
     }
     
-    return fullText;
+    return text;
+  }
+
+  /**
+   * PDF to DOCX
+   */
+  static async pdfToDocx(file: File): Promise<Blob> {
+    const text = await this.pdfToText(file);
+    const { Document, Packer, Paragraph, TextRun } = await import("docx");
+
+    const paragraphs = text.split('\n').map(line => {
+      return new Paragraph({
+        children: [new TextRun(line)],
+      });
+    });
+
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: paragraphs,
+      }],
+    });
+
+    return await Packer.toBlob(doc);
+  }
+
+  /**
+   * PDF to Excel (XLSX)
+   */
+  static async pdfToExcel(file: File): Promise<Blob> {
+    const text = await this.pdfToText(file);
+    const XLSX = await import("xlsx");
+
+    // Split text into lines, then try to split lines into columns using 2+ spaces or tabs
+    const rows = text.split('\n').map(line => {
+      return line.trim().split(/\s{2,}|\t/);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Extracted Data");
+
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    return new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   }
 
   /**

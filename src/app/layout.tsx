@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GIFTER | Privacy-First Media Processing",
+  title: "GifTer - Media Suite Converter",
   description: "Zero-login, privacy-first media processing WebApp running completely in your browser.",
 };
 

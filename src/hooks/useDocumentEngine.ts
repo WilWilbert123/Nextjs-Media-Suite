@@ -47,6 +47,90 @@ export function useDocumentEngine() {
     }
   };
 
+  const processWordToPng = async (file: File): Promise<string[] | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const blobs = await DocumentEngine.wordToPng(file);
+      return blobs.map((blob) => URL.createObjectURL(blob));
+    } catch (err: any) {
+      setError(err.message || "Failed to convert Word document to PNG.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processPdfToPng = async (file: File): Promise<string[] | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const blobs = await DocumentEngine.pdfToPng(file);
+      return blobs.map((blob) => URL.createObjectURL(blob));
+    } catch (err: any) {
+      setError(err.message || "Failed to convert PDF to PNG.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processPdfToJpeg = async (file: File): Promise<string[] | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const blobs = await DocumentEngine.pdfToJpeg(file);
+      return blobs.map((blob) => URL.createObjectURL(blob));
+    } catch (err: any) {
+      setError(err.message || "Failed to convert PDF to JPEG.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processPdfToDocx = async (file: File): Promise<string | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const blob = await DocumentEngine.pdfToDocx(file);
+      return URL.createObjectURL(blob);
+    } catch (err: any) {
+      setError(err.message || "Failed to convert PDF to DOCX.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processPdfToExcel = async (file: File): Promise<string | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const blob = await DocumentEngine.pdfToExcel(file);
+      return URL.createObjectURL(blob);
+    } catch (err: any) {
+      setError(err.message || "Failed to convert PDF to Excel.");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processWordToExcel = async (file: File): Promise<string | null> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const blob = await DocumentEngine.wordToExcel(file);
+      return URL.createObjectURL(blob);
+    } catch (err: any) {
+      setError(err.message || "Failed to convert Word to Excel (ensure the document contains tables).");
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const processExcelToPdf = async (file: File): Promise<string | null> => {
     setIsProcessing(true);
     setError(null);
@@ -127,10 +211,16 @@ export function useDocumentEngine() {
     processWordToPdf,
     processWordToHtml,
     processWordToText,
+    processWordToPng,
+    processWordToExcel,
     processExcelToPdf,
-    processPdfToText,
     processImagesToPdf,
     processMergePdfs,
     processSplitPdf,
+    processPdfToText,
+    processPdfToPng,
+    processPdfToJpeg,
+    processPdfToDocx,
+    processPdfToExcel
   };
 }
