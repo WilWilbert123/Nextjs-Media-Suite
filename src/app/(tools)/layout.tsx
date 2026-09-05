@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function ToolsLayout({
   children,
@@ -12,7 +13,7 @@ export default function ToolsLayout({
   return (
     <div className="flex flex-col min-h-screen w-full bg-background">
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 max-w-screen-2xl items-center mx-auto px-4">
+        <div className="container flex h-14 max-w-screen-2xl items-center justify-between mx-auto px-4">
           <Link
             href="/"
             className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md p-1 -ml-1"
@@ -20,6 +21,7 @@ export default function ToolsLayout({
             <ArrowLeft className="w-4 h-4" />
             Back to Tools
           </Link>
+          <ThemeToggle />
         </div>
       </header>
       
