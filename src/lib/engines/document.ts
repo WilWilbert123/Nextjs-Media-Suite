@@ -87,9 +87,9 @@ export class DocumentEngine {
       const opt = {
         margin:       0,
         filename:     'document.pdf',
-        image:        { type: 'jpeg', quality: 1.0 },
+        image:        { type: 'jpeg' as const, quality: 1.0 },
         html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' as const }
       };
       
       const html2pdfModule = (await import("html2pdf.js")).default;
@@ -135,7 +135,7 @@ export class DocumentEngine {
       await page.render({
         canvasContext: context,
         viewport: viewport
-      }).promise;
+      } as any).promise;
       
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
@@ -364,9 +364,9 @@ export class DocumentEngine {
     const opt = {
       margin:       0.5,
       filename:     'spreadsheet.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
+      image:        { type: 'jpeg' as const, quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'landscape', orientation: 'landscape' }
+      jsPDF:        { unit: 'in', format: 'landscape', orientation: 'landscape' as const }
     };
     
     try {

@@ -163,7 +163,7 @@ export function useDocumentEngine() {
     setError(null);
     try {
       const uint8Array = await DocumentEngine.imagesToPdf(files);
-      const blob = new Blob([uint8Array], { type: "application/pdf" });
+      const blob = new Blob([uint8Array as BlobPart], { type: "application/pdf" });
       return URL.createObjectURL(blob);
     } catch (err: any) {
       setError(err.message || "Failed to convert images to PDF.");
@@ -178,7 +178,7 @@ export function useDocumentEngine() {
     setError(null);
     try {
       const uint8Array = await DocumentEngine.mergePdfs(files);
-      const blob = new Blob([uint8Array], { type: "application/pdf" });
+      const blob = new Blob([uint8Array as BlobPart], { type: "application/pdf" });
       return URL.createObjectURL(blob);
     } catch (err: any) {
       setError(err.message || "Failed to merge PDFs.");
@@ -194,7 +194,7 @@ export function useDocumentEngine() {
     try {
       const uint8Arrays = await DocumentEngine.splitPdf(file);
       return uint8Arrays.map(arr => {
-        const blob = new Blob([arr], { type: "application/pdf" });
+        const blob = new Blob([arr as BlobPart], { type: "application/pdf" });
         return URL.createObjectURL(blob);
       });
     } catch (err: any) {

@@ -128,7 +128,7 @@ export default function CollagePage() {
       await engine.current.exec(command);
       
       const data = await engine.current.readFile(outputName);
-      const blob = new Blob([data], { type: isGif ? 'image/gif' : 'video/mp4' });
+      const blob = new Blob([data as BlobPart], { type: isGif ? 'image/gif' : 'video/mp4' });
       setResult({ url: URL.createObjectURL(blob), isVideo: !isGif });
       
       // Cleanup

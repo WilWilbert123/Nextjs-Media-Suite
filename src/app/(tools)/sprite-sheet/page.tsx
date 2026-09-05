@@ -48,7 +48,7 @@ export default function SpriteSheetPage() {
       await engine.current.exec(command);
       
       const data = await engine.current.readFile(outputName);
-      const blob = new Blob([data], { type: 'image/png' });
+      const blob = new Blob([data as BlobPart], { type: 'image/png' });
       setResultUrl(URL.createObjectURL(blob));
       
     } catch (err: any) {
