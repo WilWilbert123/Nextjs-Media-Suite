@@ -47,7 +47,7 @@ export default function HomePage() {
       (tool) =>
         (category === "All" || tool.category === category) &&
         (tool.name.toLowerCase().includes(search.toLowerCase()) ||
-         tool.description.toLowerCase().includes(search.toLowerCase()))
+          tool.description.toLowerCase().includes(search.toLowerCase()))
     );
   }, [search, category]);
 
@@ -131,7 +131,7 @@ export default function HomePage() {
       </div>
 
       <footer className="w-full text-center py-4 text-xs text-muted-foreground smooth-show" style={{ animationDelay: '500ms' }}>
-        &copy; 2026 Wilbert. All rights reserved.
+        &copy; 2026 Wilbert Gamis. All rights reserved.
       </footer>
     </div>
   );
